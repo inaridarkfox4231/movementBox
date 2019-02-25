@@ -2,6 +2,7 @@
 
 'use strict';
 let all; // 全体
+let backgroundColor;
 let palette; // カラーパレット
 
 // orientedMuzzle用。parallelは[0,1]→[0,1]で、normalは[0,1]上で0から0へみたいな。
@@ -17,7 +18,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 11;
+const PATTERN_NUM = 12;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -31,6 +32,7 @@ function setup(){
   createCanvas(600, 600);
   // palette HSBでやってみたい
   colorMode(HSB, 100);
+  backgroundColor = color(63, 20, 100);
   palette = [color(0, 100, 100), color(10, 100, 100), color(17, 100, 100), color(35, 100, 100), color(52, 100, 100), color(64, 100, 100), color(80, 100, 100)];
   all = new entity();
   all.initialize();
@@ -38,7 +40,7 @@ function setup(){
 }
 
 function draw(){
-  background(63, 20, 100);
+  background(backgroundColor);
   all.update(); // updateする
   all.initialGimicAction();  // 初期化前ギミックチェック
   all.completeGimicAction(); // 完了時ギミックチェック
@@ -212,12 +214,15 @@ class killHub extends flow{
 
 class colorSortHub extends flow{
   // 特定の色を1に、それ以外を0に。convertListは0と1のふたつであることを想定している。targetを1に振り分ける。
+  // ごめんなさいid廃止しました・・・
   constructor(targetColor){
     super();
     this.targetColor = targetColor;
   }
   convert(_actor){
-    if(_actor.visual.colorId === this.targetColor){
+    let hueValue = hue(_actor.myColor);
+    let judgeValue = Math.floor(hueValue / 15);
+    if(judgeValue === this.targetColor){
       this.nextFlowIndex = 1;
     }else{
       this.nextFlowIndex = 0;
@@ -265,22 +270,24 @@ class gateHub extends flow{
 // うぁぁ時間無駄にしたショック大きすぎて立ち直れない・・・・・・・・・
 class standardRegenerateHub extends flow{
   // これを通すと色とか形とかスピードとかもろもろ変化する感じ。
-  constructor(newColorId = -1, newSpeed = -1, newFigureId = 0, newSizeFactor = 0.8){
+  constructor(newColorHue = -1, newSpeed = -1, newFigureId = 0, newSizeFactor = 0.8){
     super();
-    this.newColorId = newColorId;
+    this.newColorHue = newColorHue;
     this.newSpeed = newSpeed;
     this.newFigureId = newFigureId;
     this.newSizeFactor = newSizeFactor;
   }
   execute(_actor){
     // -1のときはランダム
-    let colorId = (this.newColorId < 0 ? randomInt(7) : this.newColorId);
+    let colorHue = (this.newColorHue < 0 ? randomInt(100) : this.newColorHue);
     let speed = (this.newSpeed < 0 ? 2 + random(2) : this.newSpeed);
     let figureId = this.newFigureId;
     let sizeFactor = this.sizeFactor;
-    _actor.setVisual(colorId, figureId, sizeFactor); // あああspeedじゃないいいいいいい
+    _actor.myColor = color(colorHue, 100, 100);
+    _actor.setVisual(_actor.myColor, figureId, sizeFactor); // あああspeedじゃないいいいいいい
     _actor.setSpeed(speed);
-    _actor.visual.colorId = colorId; // カラーインデックスを更新
+    _actor.visual.myColor = _actor.myColor;
+    //_actor.visual.colorId = colorId; // カラーインデックスを更新
     _actor.activate(); // non-Activeになってるのを想定してもいる
     _actor.show(); // 消えてるなら姿を現す
     _actor.setState(COMPLETED); // ここ"COMPLETED"にしてた信じられない
@@ -702,7 +709,8 @@ class movingActor extends actor{
   constructor(f = undefined, speed = 1, colorId = 0, figureId = 0, sizeFactor = 0.8){
     super(f);
     this.pos = createVector(-100, -100); // flowが始まれば勝手に・・って感じ。
-    this.visual = new rollingFigure(colorId, figureId, sizeFactor); // 回転する図形
+    this.myColor = color(hue(palette[colorId]), saturation(palette[colorId]), 100); // 自分の色。
+    this.visual = new rollingFigure(this.myColor, figureId, sizeFactor); // 回転する図形
     this.speed = speed; // 今の状況だとスピードも要るかな・・クラスとして分離するかは要相談（composition）
     this.visible = true;
   }
@@ -728,6 +736,52 @@ class movingActor extends actor{
   }
 }
 
+// 便宜上、位置情報オンリーのactor作りますか。
+class controller extends actor{
+  constructor(f = undefined, x = 0, y = 0, speed = 1){
+    super(f);
+    this.pos = createVector(x, y);
+    this.speed = speed;
+  }
+  setPos(x, y){ // そのうちゲーム作ってみるとかなったら全部これ経由しないとね。
+    this.pos.x = x;
+    this.pos.y = y; // 今更だけどposをセットする関数（ほんとに今更）
+  }
+  getPos(){
+    return this.pos; // ゲッター
+  }
+  setSpeed(newSpeed){
+    this.speed = newSpeed;
+  }
+}
+
+class colorController extends controller{
+  // カラーオブジェクトを有する。色変更。まとめて変えることも。
+  constructor(f = undefined, x = 0, y = 0, speed = 1){
+    super(f, x, y, speed);
+    this.targetArray = [];
+    // targetはchangeColor(x, y, z, w)という引数を持ってる必要がある。これを呼び出すことになる。
+    // モードの概念を加えれば、2つまでいじれる、かな・・・
+  }
+  in_progressAction(){
+    //console.log(this.pos);
+    let thirdValue = brightness(this.targetArray[0].myColor);
+    let fourceValue = alpha(this.targetArray[0].myColor);
+    //console.log(brightness(this.targetArray[0].myColor));
+    console.log(alpha(this.targetArray[0].myColor));
+    this.currentFlow.execute(this); // 実行！この中で適切なタイミングでsetState(COMPLETED)してもらうの
+    this.targetArray.forEach(function(target){ target.changeColor(this.pos.x, this.pos.y, thirdValue, fourceValue); }, this)
+  }
+  addTarget(targetColor){
+    this.targetArray.push(targetColor);
+  }
+  addMultiTarget(targetColorArray){
+    targetColorArray.forEach(function(t){ this.addTarget(t); }, this);
+  }
+  // removeとかはまた今度
+}
+// むぅぅ。posControllerも作りたい。足し算で挙動に変化を加えるとか。
+
 // 1つだけflowをこなしたら消える
 class combat extends actor{
   constructor(f = undefined){
@@ -743,23 +797,28 @@ actor.index = 0; // 0, 1, 2, 3, ....
 // やることは図形を表示させること、回転はオプションかな・・
 // たとえばアイテムとか、オブジェクト的な奴とか。回転しないことも考慮しないとなぁ。
 class figure{
-  constructor(colorId, figureId = 0, sizeFactor = 0.8){
-    this.colorId = colorId; // 0~6の値 // colorにしてグラデいじるのはMassGameの方でやることにしました
+  constructor(myColor, figureId = 0, sizeFactor = 0.8){
+    this.myColor = myColor; // 色クラス使いまーす
     // shootingGameの方でもグラデ使いたいんだけどどうすっかなー、ま、どうにでもできるか。
     // こういうのどうにでもできる強さがあればいいんじゃない？はやいとこ色々作りたいよ。
     this.figureId = figureId; // 図形のタイプ
     this.sizeFactor = sizeFactor; // おおきさ
     this.graphic = createGraphics(40, 40);
     //inputGraphic(this.graphic, colorId);
-    figure.setGraphic(this.graphic, colorId, figureId, sizeFactor);
+    figure.setGraphic(this.graphic, this.myColor, figureId, sizeFactor);
   }
-  reset(newColorId, newFigureId, newSizeFactor){
-    figure.setGraphic(this.graphic, newColorId, newFigureId, newSizeFactor);
+  reset(newColor, newFigureId, newSizeFactor){
+    figure.setGraphic(this.graphic, newColor, newFigureId, newSizeFactor);
   }
-  static setGraphic(img, colorId, figureId = 0, sizeFactor = 0.8){
+  changeColor(x, y, z, w){ // 色が変わるといいね（え？）
+    this.myColor = color(x, y, z, w);
+    //console.log(this.myColor);
+    figure.setGraphic(this.graphic, this.myColor, this.figureId, this.sizeFactor); // update.
+  }
+  static setGraphic(img, myColor, figureId = 0, sizeFactor = 0.8){
     img.clear();
     img.noStroke();
-    img.fill(palette[colorId]);
+    img.fill(myColor);
     let r = 10 * sizeFactor;
     if(figureId === 0){
       img.rect(20 - r, 20 - r, 2 * r, 2 * r);
@@ -874,8 +933,8 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 10; // うまくいくのかな・・
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10];
+    this.patternIndex = 11; // うまくいくのかな・・
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1277,6 +1336,65 @@ function createPattern10(){
   all.flows.push(sp1);
   all.baseFlows.push(sp1);
   all.connectMulti([1], [[2]]);
+  all.activateAll();
+}
+/*
+function createPattern11(){
+  // colorControllerの実験。割とうまくいった。
+  let posX = multiSeq(arSeq(100, 100, 3), 3);
+  let posY = jointSeq([constSeq(100, 3), constSeq(200, 3), constSeq(300, 3)]);
+  let vecs = getVector(posX, posY);
+  let paramSet = getOrbitalFlow(vecs, [0, 1, 3, 4, 2, 4, 5, 3, 4, 8, 6, 7], [1, 2, 0, 1, 5, 3, 4, 6, 7, 5, 7, 8], 'straight');
+  all.registFlow(paramSet);
+  all.connectMulti(arSeq(0, 1, 12), [[1], [4], [0], [1], [6], [2, 7], [3, 5, 8], [10], [11], [6], [11], [9]]);
+  all.registActor([0], [2], [0]);
+  // colorControllerの働くflowを設定（描画しなくていいのでbaseFlowsには入れない）
+  vecs = [createVector(0, 100), createVector(100, 100)];
+  let f = new straightFlow(vecs[0], vecs[1], 1);
+  all.flows.push(f);
+  //all.baseFlows.push(f); // あ、そうか。
+  // あのですね。描画させないためにはbaseFlowsに入れなければよいそうです（当たり前だ・・・！）
+  // なんだ、visible操作要らないのか・・プロパティ増やす必要ないじゃん。
+  let cc = new colorController(f, 0, 0, 0.1); // colorController.
+  all.actors.push(cc);
+  cc.addTarget(all.actors[0].visual);
+  all.connectMulti([12], [[12]]); // 0から100まで増やすのを延々とやってもらう
+  all.activateAll();
+}*/
+
+function createPattern11(){
+  // colorControllerの実験
+  let posX = multiSeq(arSeq(100, 100, 4), 2);
+  let posY = jointSeq([constSeq(100, 4), constSeq(200, 4)]);
+  let vecs = getVector(posX, posY);
+  let paramSet = getOrbitalFlow(vecs, [1, 0, 4, 5, 2, 3, 7, 6], [0, 4, 5, 1, 3, 7, 6, 2], 'straight');
+  paramSet = paramSet.concat(getOrbitalFlow(vecs, [1, 6], [2, 5], 'jump', false));
+  all.registFlow(paramSet);
+
+  all.registActor([1, 2 ,5, 6], [1.6, 1.9, 2.2, 2.5], [0, 1, 2, 3]);
+  // さてと。
+  vecs = getVector([0, 100, 50, 0, 100], [0, 0, 50, 100, 100]);
+  let start = [1, 2, 1, 0, 2, 4, 4, 3];
+  let end = [0, 0, 2, 3, 3, 2, 1, 4];
+  for(let i = 0; i < 8; i++){ all.flows.push(new straightFlow(vecs[start[i]], vecs[end[i]], 1)); }
+  // ccを作る
+  let ccArray = [];
+  ccArray.push(new colorController(all.flows[11], 0, 0, 0.1));
+  ccArray.push(new colorController(all.flows[12], 0, 0, 0.1));
+  ccArray.push(new colorController(all.flows[14], 0, 0, 0.1));
+  ccArray.push(new colorController(all.flows[15], 0, 0, 0.1));
+  for(let i = 0; i < 4; i++){ ccArray[i].addTarget(all.actors[i].visual); }
+  for(let i = 0; i < 4; i++){ all.actors.push(ccArray[i]); }
+  // 忘れずに接続
+  // つまんないので分岐増やそう
+  vecs = getVector([200, 300, 200, 300], [200, 200, 300, 300]);
+  paramSet = getOrbitalFlow(vecs, [0, 2, 3], [2, 3 ,1], 'straight');
+  all.registFlow(paramSet);
+  // 接続忘れるな～
+  all.connectMulti(arSeq(0, 1, 10), [[1], [2], [3, 18], [0, 8], [5], [6], [7, 9], [4], [4], [3]]);
+  all.connectMulti(arSeq(10, 1, 8), [[13], [13], [11, 14], [17], [17], [11, 14], [10, 12], [15, 16]]);
+  all.connectMulti([18, 19, 20], [[19], [20], [7, 9]]);
+  console.log(all.flows[19]);
   all.activateAll();
 }
 
