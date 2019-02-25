@@ -4,10 +4,20 @@
 let all; // 全体
 let palette; // カラーパレット
 
+// orientedMuzzle用。parallelは[0,1]→[0,1]で、normalは[0,1]上で0から0へみたいな。
 let parallelFunc = [funcP0, funcP1, funcP2, funcP3, funcP4, funcP5, funcP6, funcP7, funcP8];
 let normalFunc = [funcN0, funcN1];
 
-const PATTERN_NUM = 10;
+// shooting用。parallelは基本的に0以上に対して∞まで増大していく感じ、たださほど大きくならない・・
+// normalの方は0付近をうろうろする？まあはじけてもいい、その場合は外れて飛んでいく。
+let shootParallel = [sfuncP0, sfuncP1, sfuncP2];
+let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
+
+// spiral用。
+let spiralParallel = [spfuncP0];
+let spiralNormal = [spfuncN0];
+
+const PATTERN_NUM = 11;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -369,7 +379,7 @@ class ejectiveFlow extends flow{
   initialize(_actor){
     _actor.timer.reset(); // resetするだけ
   }
-  static eject(_actor){
+  eject(_actor){
     // 画面外に出たら抹殺
     if(_actor.pos.x > width || _actor.pos.x < 0 || _actor.pos.y < 0 || _actor.pos.y > height){
       _actor.setState(COMPLETED);
@@ -391,24 +401,65 @@ class fallFlow extends ejectiveFlow{
     let cnt = _actor.timer.getCnt();
     _actor.pos.x += this.vx;
     _actor.pos.y -= this.vy - this.gravity * cnt; // これでいいね。物理。
-    ejectiveFlow.eject(_actor);
+    this.eject(_actor);
   }
 }
 
-// 直線的に動きながら消滅
+// 直線的に動きながら消滅. イージング加えるか。
 class shootingFlow extends ejectiveFlow{
-  constructor(v){
+  constructor(v, easeId1, easeId2){
     super();
     this.v = v; // 大きさ正規化しないほうが楽しいからこれでいいや
+    this.easeId1 = easeId1;
+    this.easeId2 = easeId2; // めんどくさい・・適当でいいや（え？）
   }
   execute(_actor){
-    _actor.pos.x += this.v.x * _actor.speed; // ベクトルvの方向にとんでいく。
-    _actor.pos.y += this.v.y * _actor.speed;
-    ejectiveFlow.eject(_actor);
+    _actor.timer.step(); // イージングの為のカウンター
+    let cnt = _actor.timer.getCnt();
+    let parallelFactor = shootParallel[this.easeId1](cnt);
+    let normalFactor = shootNormal[this.easeId2](cnt);
+    // ベクトルの方向にとんでく。イージングは縦横両方。
+    _actor.pos.x += (this.v.x * parallelFactor + this.v.y * normalFactor) * _actor.speed;
+    _actor.pos.y += (this.v.y * parallelFactor - this.v.x * normalFactor) * _actor.speed;
+    this.eject(_actor);
   }
 }
+
+// 中心決まってて、こいつに向かう単位ベクトルにイージングかけて毎ターン足すだけ。ejectはオーバーライド
+// して中心に近くても消えるようにする
+class spiralFlow extends ejectiveFlow{
+  constructor(center, easeId1, easeId2){
+    super();
+    this.center = center; // 中心位置だけでOK. なんかもうめんどくさい。
+    this.easeId1 = easeId1;
+    this.easeId2 = easeId2; // めんどくさい・・適当でいいや（え？）
+  }
+  execute(_actor){
+    _actor.timer.step(); // イージングの為のカウンター
+    let cnt = _actor.timer.getCnt();
+    let parallelFactor = spiralParallel[this.easeId1](cnt);
+    let normalFactor = spiralNormal[this.easeId2](cnt);
+    let v = p5.Vector.sub(_actor.pos, this.center).normalize(); // 中心からこいつに向かう単位ベクトル
+    _actor.pos.x += (v.x * parallelFactor + v.y * normalFactor) * _actor.speed;
+    _actor.pos.y += (v.y * parallelFactor - v.x * normalFactor) * _actor.speed;
+    // たとえばnormalFactorが0ならとんでくしparallelが0なら回る（はず）
+    this.eject(_actor);
+  }
+  eject(_actor){
+    // 画面外に出たら抹殺
+    if(_actor.pos.x > width || _actor.pos.x < 0 || _actor.pos.y < 0 || _actor.pos.y > height){
+      _actor.setState(COMPLETED);
+      _actor.hide(); // 姿を消す
+    }else if(p5.Vector.dist(this.center, _actor.pos) < 10){
+      _actor.setState(COMPLETED);
+      _actor.hide(); // 中心に近い場合
+    }
+  }
+}
+
 // ejectiveはあと獣人いいよねじゃなくて螺旋を描きながら上に向かっていく。
 // 画面外に出た後の処理も同じ？
+
 
 // やっと本題に入れる。2時間もかかったよ。
 // ratioが1より大きい時はずれ幅を直接長さで指定できるようにしたら面白そうね
@@ -823,8 +874,8 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 9; // うまくいくのかな・・
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9];
+    this.patternIndex = 10; // うまくいくのかな・・
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -914,7 +965,7 @@ class entity{
     }else if(params['type'] === 'fall'){
       return new fallFlow(params['speed'], params['distance'], params['height']);
     }else if(params['type'] === 'shooting'){
-      return new shootingFlow(params['v']); // fromは廃止
+      return new shootingFlow(params['v'], params['id1'], params['id2']); // fromは廃止
     }else if(params['type'] === 'wait'){
       return new waitFlow(params['span']); // spanフレーム数だけアイドリング。combatに使うなど用途色々
     }else if(params['type'] === 'colorSort'){
@@ -1011,7 +1062,7 @@ function createPattern2(){
   let shootingSet = typeSeq('shooting', 4);
   let vSet = [createVector(1, 1), createVector(1, 1), createVector(1, -1), createVector(1, -1)];
 
-  for(let i = 0; i < 4; i++){ shootingSet[i]['v'] = vSet[i]; }
+  for(let i = 0; i < 4; i++){ shootingSet[i]['v'] = vSet[i]; shootingSet[i]['id1'] = 0; shootingSet[i]['id2'] = 2; }
 
   let fallSet = typeSeq('fall', 3);
   let dataSet = [[1, 30, 60], [1, 60, 120], [2, 60, 60]];
@@ -1215,6 +1266,20 @@ function createPattern9(){
   all.activateAll();
 }
 
+// spiralFlowの実験. 落ちていく・・・落ちていく。
+function createPattern10(){
+  let vecs = getVector([100, 120, 140], [100, 120, 140]);
+  let paramSet = getOrbitalFlow(vecs, [0, 1], [1, 2], 'straight');
+  all.registFlow(paramSet);
+  all.registActor([0], [2], [0]);
+  all.connectMulti([0], [[1]]);
+  let sp1 = new spiralFlow(createVector(400, 300), 0, 0);
+  all.flows.push(sp1);
+  all.baseFlows.push(sp1);
+  all.connectMulti([1], [[2]]);
+  all.activateAll();
+}
+
 // 速度を与えて毎フレームその分だけ移動するとか？その場合イージングはどうなる・・
 
 // --------------------------------------------------------------------------------------- //
@@ -1334,3 +1399,16 @@ function funcP8(x){ return 0.5 * (1 - cos(9 * PI * x)); } // 波打つやつ
 
 function funcN0(x){ return 0; }
 function funcN1(x){ return sin(10 * PI * x); }
+
+// 微分
+function sfuncP0(x){ return 1; }
+function sfuncP1(x){ return 0.1 * x; }
+function sfuncP2(x){ return 1 - cos(x); }
+
+function sfuncN0(x){ return 0; }
+function sfuncN1(x){ return 2 * sin(x); }
+function sfuncN2(x){ return (x < 30 ? 1 : 0); } // 3WAYっぽい挙動。
+
+function spfuncP0(x){ return -0.2; }
+
+function spfuncN0(x){ return 1; }
