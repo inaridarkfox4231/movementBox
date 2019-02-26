@@ -19,7 +19,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 13;
+const PATTERN_NUM = 12;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -791,7 +791,6 @@ class backgroundColorController extends controller{
     super(f, x, y, speed);
   }
   in_progressAction(){
-    //console.log("%d %d %d", this.pos.x, this.pos.y, this.currentFlow.index);
     let thirdValue = brightness(backgroundColor);
     let fourceValue = alpha(backgroundColor);
     this.currentFlow.execute(this); // 実行！この中でsetState(COMPLETED)してもらう
@@ -1033,8 +1032,8 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 12; // うまくいくのかな・・
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12];
+    this.patternIndex = 10; // うまくいくのかな・・
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1437,12 +1436,13 @@ function createPattern10(){
   let vecs = getVector([100, 120, 140], [100, 120, 140]);
   let paramSet = getOrbitalFlow(vecs, [0, 1], [1, 2], 'straight');
   all.registFlow(paramSet);
-  all.registActor([0], [2], [0]);
+  all.registActor([0, 0, 0, 0, 0, 0], [2, 2.2, 2.4, 2.6, 2.8, 3], [0, 1, 2, 3, 4, 5]);
   all.connectMulti([0], [[1]]);
   let sp1 = new spiralFlow(createVector(400, 300), 0, 0);
   all.flows.push(sp1);
-  all.baseFlows.push(sp1);
-  all.connectMulti([1], [[2]]);
+  let srh = new standardRegenerateHub();
+  all.flows.push(srh);
+  all.connectMulti([1, 2, 3], [[2], [3], [0]]); // やっぱだめだ。やり方がまずい。
   all.activateAll();
 }
 
@@ -1483,49 +1483,6 @@ function createPattern11(){
   all.connectMulti(arSeq(10, 1, 8), [[13], [13], [11, 14], [17], [17], [11, 14], [10, 12], [15, 16]]);
   all.connectMulti([18, 19, 20], [[19], [20], [7, 9]]);
   console.log(all.flows[19]);
-  all.activateAll();
-}
-
-function createPattern12(){
-  // テスト用(走らせるだけ)
-  let posX = arSeq(50, 50, 9);
-  let posY = constSeq(100, 9);
-  let vecs = getVector(posX, posY);
-  let pattern = getOrbitalFlow(vecs, arSeq(0, 1, 8), arSeq(1, 1, 8), 'straight');
-  all.registFlow(pattern);
-  all.connectMulti(arSeq(0, 1, 7), [[1], [2], [3], [4], [5], [6], [7]]);
-  all.registActor([0], [1], [0]);
-
-  // ギミック仕込んでみる？
-  for(let i = 0; i < 8; i++){
-    let g = new figureChangeGimic(i, i);
-    all.completeGimic.push(g);
-  }
-  // カラーコントローラー仕込んでみる
-  posX = [0, 5, 10, 13, 17, 26, 35, 43, 52, 58, 64, 72, 80, 90, 100];
-  posY = [100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100];
-  vecs = getVector(posX, posY);
-  let spanSet = [24, 25, 24, 25, 24, 25, 24, 25, 24, 25, 24, 25, 24, 25];
-  pattern = getOrbitalEasingFlow(vecs, constSeq(0, 14), constSeq(0, 14), constSeq(0, 14), spanSet, arSeq(0, 1, 14), arSeq(1, 1, 14));
-  all.registFlow(pattern, false);
-  all.flows.push(new waitFlow(50)); // 最後はwaitでいいよ
-  // またつなぐの忘れた。。番号は15本なので8～22ですね。
-  all.connectMulti(arSeq(8, 1, 15), [[9], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [8]]);
-  // さっきのは本体の色用。次に背景色のやつ用意する
-  posY = [30, 0, 30, 0, 30, 0, 30, 0, 30, 0, 30, 0, 30, 0, 30];
-  vecs = getVector(posX, posY);
-  pattern = getOrbitalEasingFlow(vecs, constSeq(0, 14), constSeq(0, 14), constSeq(0, 14), spanSet, arSeq(0, 1, 14), arSeq(1, 1, 14));
-  all.registFlow(pattern, false);
-  all.flows.push(new waitFlow(50)); // 最後はwaitで。
-  // つなぐ。15本なので23～37ですね。
-  all.connectMulti(arSeq(23, 1, 15), [[24], [25], [26], [27], [28], [29], [30], [31], [32], [33], [34], [35], [36], [37], [23]]);
-  // どうやるんだっけ（おい）
-  let cc = new colorController(all.getFlow(8), 0, 100, 1)
-  all.actors.push(cc);
-  cc.addTarget(all.actors[0].visual);  // また間違えた、visualを入れるんだった・・
-  let bcc = new backgroundColorController(all.getFlow(23), 0, 50, 1);
-  all.actors.push(bcc);
-
   all.activateAll();
 }
 
