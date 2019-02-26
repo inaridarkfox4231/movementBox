@@ -19,7 +19,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 12;
+const PATTERN_NUM = 1;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -190,7 +190,7 @@ class assembleHub extends flow{
 }
 
 class assembleRotaryHub extends assembleHub{
-  // アセンブルハブで、かつcloseのたびに行先が変わる。MassGameなどで重宝する。
+  // アセンブルハブで、かつcloseのたびに行先が変わる。MassGameでは結局使わなかった。
   constructor(limit){
     super(limit);
     // -1から始まって0, 1, 2, ..., n-1, 0って感じで。
@@ -238,33 +238,21 @@ class gateHub extends flow{
   // gateHubはforLoopを模式化したもので、そこを何回も訪れたactorに別の行先を提供するもの。
   constructor(norma){
     super();
-    this.norma = norma; // 必要周回数
-    this.register = []; // 周回数を記録する登録用の配列
+    this.norma = norma; // 必要周回数 // register廃止
   }
-  getIndex(actorId){
-    // actorIdのactorが登録されているか調べてそのindexを返す、登録されてない時は-1を返す。
-    let index = -1;
-    for(let i = 0; i < this.register.length; i++){
-      if(this.register[i]['id'] === actorId){ index = i; break; }
+  initialize(_actor){
+    if(_actor.info['loopCount'] === undefined){
+      _actor.info['loopCount'] = 0; // 初めて訪れた時のみloopCountを登録
     }
-    return index;
   }
   convert(_actor){
-    // normaに満たない時は0に、満たすときは1に流す。
-    let index = this.getIndex(_actor.index);
-    if(index < 0){
-      let dict = {id:_actor.index, loopCount:0};
-      this.register.push(dict); // リストにない時は新規登録
-      index = this.register.length - 1; // indexをそのactorの存在番号で更新
-    }else{
-      this.register[index]['loopCount'] += 1; // リストにあるときは周回数を増やす
-    }
-    if(this.register[index]['loopCount'] < this.norma){
+    // loopCount < norma: 0に流してカウント増やす。　== norma: 1に流してdelete.
+    if(_actor.info['loopCount'] < this.norma){
       this.nextFlowIndex = 0;
     }else{
       this.nextFlowIndex = 1;
-      // ここにリストからの削除命令
-      this.register.splice(index, 1);
+      // ここにメモ帳からの削除命令
+      delete _actor.info['loopCount'];
     }
     _actor.setFlow(this.convertList[this.nextFlowIndex]);
   }
@@ -662,6 +650,9 @@ class actor{
     this.timer = new counter();
     this.isActive = false; // デフォルトをfalseにしてプログラムのインプット時にtrueにする作戦で行く
     this.state = IDLE; // 状態（IDLE, IN_PROGRESS, COMPLETED）
+    this.info = {}; // 辞書。メモ帳的な。
+    //（flow開始時に登録して終了時に削除、どんな情報が必要かはflowに書いてある。）
+    // たとえていうなら出張に持っていくメモ帳のようなものね。業務が終わったら不要になるのです。
   }
   activate(){ this.isActive = true; } // isActiveがfalse⇔updateしない。シンプル。これを目指している。
   inActivate(){ this.isActive = false; } // 冗長だけどコードの可読性の為に両方用意する。
@@ -716,7 +707,6 @@ class movingActor extends actor{
     this.visual = new rollingFigure(colorOfActor); // 回転する図形
     this.speed = speed; // 今の状況だとスピードも要るかな・・クラスとして分離するかは要相談（composition）
     this.visible = true;
-    // 辞書を持たせたい。initializeで必要な情報を登録してexecuteで使うの。
   }
   setPos(x, y){ // そのうちゲーム作ってみるとかなったら全部これ経由しないとね。
     this.pos.x = x;
@@ -961,8 +951,8 @@ class entity{
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
     this.patternIndex = 0; // うまくいくのかな・・
-    //this.patternArray = [createPattern0] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
+    this.patternArray = [createPattern7] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
+    //this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1226,12 +1216,6 @@ function createPattern5(){
   all.flows.push(reg);
   all.baseFlows.push(reg); // 27.
   all.connectMulti(arSeq(0, 1, 28), [[21], [22], [23], [24], [25], [26], [13], [14], [15], [16], [17], [18], [19], [20], [27], [27], [27], [27], [27], [27], [27], [1, 7], [2, 8], [3, 9], [4, 10], [5, 11], [6, 12], [0]]);
-  // 次にgenerateGimic
-  //all.completeGimic.push(new generateGimic(27, [0]));
-  // 生成用のactor
-  //let generateRunner = new actor(all.getFlow(27));
-  //generateRunner.activate();
-  //all.actors.push(generateRunner); // 走るだけ
   all.registActor([0, 0, 0, 0, 0, 0, 0], [1.4, 1.6, 1.8, 2, 2.2, 2.4, 2.6], arSeq(0, 1, 7));
   all.activateAll();
 }
@@ -1247,8 +1231,6 @@ function createPattern6(){
   all.registFlow(paramSet); // 2と3.
   // 登録するところまでconstructorに書いてしまえ。そうすればregistFlowの時点ですべて終わる。
   // いろいろごちゃごちゃしてるけどやってることは単純明快です。あっちいけ。そんだけ。
-  //all.initialGimic.push(new singleMuzzleRevolver(2, DIFF, vecs[0]));
-  //all.initialGimic.push(new multiMuzzleRevolver(3, DIFF, [vecs[1], vecs[2], vecs[3], vecs[4], vecs[5]]));
   // convert忘れてた
   all.connectMulti([1, 2, 3], [[2], [3], [0]]);
   // なんだろ、このconvertまでの一連の流れをもうちょっとメソッド化したいな・・・・
