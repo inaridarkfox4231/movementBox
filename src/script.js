@@ -245,6 +245,8 @@ class gateHub extends flow{
       _actor.info['loopCount'] = 0; // 初めて訪れた時のみloopCountを登録
     }
   }
+  // completionがあればここconvertまるごと書き換えなくて済む。
+  // 確かにconvertでdeleteっておかしいね・・
   convert(_actor){
     // loopCount < norma: 0に流してカウント増やす。　== norma: 1に流してdelete.
     if(_actor.info['loopCount'] < this.norma){
@@ -423,6 +425,7 @@ class shootingFlow extends ejectiveFlow{
 // して中心に近くても消えるようにする
 // きちんとしたのは作ります、きちんと。
 // その前に辞書。
+// circularできたらこんな意味不明なの廃止だよ。
 class spiralFlow extends ejectiveFlow{
   constructor(center, easeId1, easeId2){
     super();
@@ -456,7 +459,6 @@ class spiralFlow extends ejectiveFlow{
 
 // ejectiveはあと獣人いいよねじゃなくて螺旋を描きながら上に向かっていく。
 // 画面外に出た後の処理も同じ？
-
 
 // やっと本題に入れる。2時間もかかったよ。
 // ratioが1より大きい時はずれ幅を直接長さで指定できるようにしたら面白そうね
@@ -523,17 +525,11 @@ class orbitalEasingFlow extends easingFlow{
   }
 }
 
-// あー・・両方一緒だ。
-// Gimicが要らないとは言ってない。使い方が間違ってるってだけ。
-
-// 名前muzzleにしよう
+// 名前muzzleにしよう. register廃止。
 // mode増やそう。revolveのモード。simple, rect, ellipse, fan, rotation, parallelの6種類
 class orientedMuzzle extends easingFlow{
   constructor(easeId_parallel, easeId_normal, ratio, spanTime, kind, infoVectorArray, mode){
     super(easeId_parallel, easeId_normal, ratio, spanTime);
-    //this.infoVector; // 情報ベクトル
-    //this.kind; // toの指定の仕方（DIRECT:位置を直接指定、DIFF:ベクトルで指定）
-    this.register = [];
     this.kind = kind; // DIRECTなら目標地点ベース、DIFFならベクトルベース
     this.infoVectorArray = infoVectorArray; // 位置だったりベクトルの集合
     this.currentIndex = -1; // simpleはまず1つ進めてからなので初期値を-1にしておかないと。てかsimpleでしか使わないな・・
@@ -588,53 +584,40 @@ class orientedMuzzle extends easingFlow{
   }
   regist(_actor){
     // revolverGimicでこれを呼び出して先に登録しちゃう
-    let dict = {};
-    dict['id'] = _actor.index;
-    dict['from'] = _actor.pos;
+    _actor.info['from'] = _actor.pos;
     let infoVector = this.getInfoVector(); // ベクトルはここで計算する
     if(this.kind === DIRECT){
-      dict['to'] = infoVector;
+      _actor.info['to'] = infoVector;
     }else{
       let toVector = p5.Vector.add(_actor.pos, infoVector);
-      dict['to'] = toVector;
+      _actor.info['to'] = toVector;
     }
-    dict['diffVector'] = this.calcDiffVector(dict['from'], dict['to']);
-    this.register.push(dict);
-    // bulletクラス作ればactorから情報引き出せるけど・・
-  }
-  getIndex(actorId){
-    let correctId = -1;
-    for(let i = 0; i < this.register.length; i++){
-      if(this.register[i]['id'] === actorId){ correctId = i; break; }
-    }
-    return correctId; // -1:Not Found.
-  }
-  delete(actorId){
-    // 登録情報の削除。COMPLETEDの際に呼び出す
-    let correctId = this.getIndex(actorId);
-    this.register.splice(correctId, 1);
+    _actor.info['diffVector'] = this.calcDiffVector(_actor.pos, _actor.info['to']);
   }
   initialize(_actor){
     this.regist(_actor); // 登録
     _actor.timer.reset();
   }
   execute(_actor){
-    let index = this.getIndex(_actor.index);
-    let progress = this.getProgress(_actor); // progressを普通に取得。（-1の指定やめた）
+    let progress = this.getProgress(_actor); // progressを普通に取得。
     let easedProgress = parallelFunc[this.easeId_parallel](progress);
     let normalDiff = normalFunc[this.easeId_normal](progress);
 
-    let fromVector = this.register[index]['from'];
-    let toVector = this.register[index]['to'];
-    let diffVector = this.register[index]['diffVector'];
+    let fromVector = _actor.info['from'];
+    let toVector = _actor.info['to'];
+    let diffVector = _actor.info['diffVector'];
 
     _actor.pos.x = map(easedProgress, 0, 1, fromVector.x, toVector.x);
     _actor.pos.y = map(easedProgress, 0, 1, fromVector.y, toVector.y);
     let easeVectorN = p5.Vector.mult(diffVector, normalDiff);
     _actor.pos.add(easeVectorN);
     if(progress === 1){
+      // completeActionほしい
       _actor.setState(COMPLETED);
-      this.delete(_actor.index); // 完了したら情報を削除
+      // 情報を削除。確かにこれはconvertにもexecuteにも書くべきではないな。
+      delete _actor.info['from'];
+      delete _actor.info['to'];
+      delete _actor.info['diffVector'];
     }
   }
 }
@@ -683,8 +666,10 @@ class actor{
     this.currentFlow.execute(this); // 実行！この中で適切なタイミングでsetState(COMPLETED)してもらうの
   }
   completeAction(){
-    this.setState(IDLE);
+    //this.setState(IDLE);
+    // ここにthis.currentFlow.completion(this)って書きたいね
     this.currentFlow.convert(this); // ここで行先が定められないと[IDLEかつundefined]いわゆるニートになります（おい）
+    this.setState(IDLE);
   }
   kill(){
     // 自分を排除する
@@ -951,7 +936,7 @@ class entity{
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
     this.patternIndex = 0; // うまくいくのかな・・
-    this.patternArray = [createPattern7] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
+    this.patternArray = [createPattern9] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
     //this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
   }
   getFlow(givenIndex){
