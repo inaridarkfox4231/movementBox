@@ -18,7 +18,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 12;
+const PATTERN_NUM = 13;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -755,12 +755,15 @@ class controller extends actor{
   }
 }
 
+// 条件1: myColorという名前のcolorオブジェクトを持ってる。
+// 条件2: changeColor(x, y, z, w)という色変更の関数を持ってる。
+// 背景が単色ならクラスの構成工夫すればこれで・・
 class colorController extends controller{
   // カラーオブジェクトを有する。色変更。まとめて変えることも。
   constructor(f = undefined, x = 0, y = 0, speed = 1){
     super(f, x, y, speed);
-    this.targetArray = [];
-    // targetはchangeColor(x, y, z, w)という引数を持ってる必要がある。これを呼び出すことになる。
+    this.targetArray = []; // myColorという名前のcolorオブジェクトを持ってることが条件。
+    // targetはchangeColor(x, y, z, w)という名前の関数を持ってる必要がある。これを呼び出すことになる。
     // モードの概念を加えれば、2つまでいじれる、かな・・・
   }
   in_progressAction(){
@@ -768,7 +771,7 @@ class colorController extends controller{
     let thirdValue = brightness(this.targetArray[0].myColor);
     let fourceValue = alpha(this.targetArray[0].myColor);
     //console.log(brightness(this.targetArray[0].myColor));
-    console.log(alpha(this.targetArray[0].myColor));
+    //console.log(alpha(this.targetArray[0].myColor));
     this.currentFlow.execute(this); // 実行！この中で適切なタイミングでsetState(COMPLETED)してもらうの
     this.targetArray.forEach(function(target){ target.changeColor(this.pos.x, this.pos.y, thirdValue, fourceValue); }, this)
   }
@@ -780,7 +783,24 @@ class colorController extends controller{
   }
   // removeとかはまた今度
 }
+
+class backgroundColorController extends controller{
+  // 背景色を変える
+  constructor(f = undefined, x = 0, y = 0, speed = 1){
+    super(f, x, y, speed);
+  }
+  in_progressAction(){
+    //console.log("%d %d %d", this.pos.x, this.pos.y, this.currentFlow.index);
+    let thirdValue = brightness(backgroundColor);
+    let fourceValue = alpha(backgroundColor);
+    this.currentFlow.execute(this); // 実行！この中でsetState(COMPLETED)してもらう
+    backgroundColor = color(this.pos.x, this.pos.y, thirdValue, fourceValue);
+  }
+}
 // むぅぅ。posControllerも作りたい。足し算で挙動に変化を加えるとか。
+
+// たとえば背景をクラス扱いしてそれを形成する色の部分に変化を加えて・・とかできる。
+
 
 // 1つだけflowをこなしたら消える
 class combat extends actor{
@@ -815,7 +835,13 @@ class figure{
     //console.log(this.myColor);
     figure.setGraphic(this.graphic, this.myColor, this.figureId, this.sizeFactor); // update.
   }
+  changeFigure(newFigureId){ // 形が変わる
+    this.figureId = newFigureId;
+    //console.log(this.figureId);
+    figure.setGraphic(this.graphic, this.myColor, this.figureId, this.sizeFactor); // update.
+  }/*
   static setGraphic(img, myColor, figureId = 0, sizeFactor = 0.8){
+    // 形のバリエーション増やす～
     img.clear();
     img.noStroke();
     img.fill(myColor);
@@ -828,6 +854,67 @@ class figure{
     }else if(figureId === 2){
       r *= 1.2;
       img.triangle(20, 20 - 2 * r / Math.sqrt(3), 20 + r, 20 + (r / Math.sqrt(3)), 20 - r, 20 + (r / Math.sqrt(3)));
+    }
+  }*/
+  static setGraphic(img, myColor, figureId = 0, sizeFactor = 0.8){
+    // 形のバリエーション増やす
+    img.clear();
+    img.noStroke();
+    img.fill(myColor);
+    let r = 10 * sizeFactor;
+    if(figureId === 0){
+      // 正方形
+      img.rect(10, 10, 20, 20);
+      img.fill(255);
+      img.rect(15, 15, 2, 5);
+      img.rect(23, 15, 2, 5);
+    }else if(figureId === 1){
+      // 星型
+      let outer = rotationSeq(0, -12, 2 * PI / 5, 5, 20, 20);
+      let inner = rotationSeq(0, 6, 2 * PI / 5, 5, 20, 20);
+      for(let i = 0; i < 5; i++){
+        let k = (i + 2) % 5;
+        let l = (i + 3) % 5;
+        img.quad(outer[i].x, outer[i].y, inner[k].x, inner[k].y, 20, 20, inner[l].x, inner[l].y);
+      }
+    }else if(figureId === 2){
+      // 三角形
+      img.triangle(20, 20 - 24 / Math.sqrt(3), 32, 20 + (12 / Math.sqrt(3)), 8, 20 + (12 / Math.sqrt(3)));
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
+    }else if(figureId === 3){
+      // ひしがた
+      img.quad(28, 20, 20, 20 - 10 * Math.sqrt(3), 12, 20, 20, 20 + 10 * Math.sqrt(3));
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
+    }else if(figureId === 4){
+      // 六角形
+      img.quad(32, 20, 26, 20 - 6 * Math.sqrt(3), 14, 20 - 6 * Math.sqrt(3), 8, 20);
+      img.quad(32, 20, 26, 20 + 6 * Math.sqrt(3), 14, 20 + 6 * Math.sqrt(3), 8, 20);
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
+    }else if(figureId === 5){
+      // なんか頭ちょろってやつ
+      img.ellipse(20, 20, 20, 20);
+      img.triangle(20, 20, 20 - 5 * Math.sqrt(3), 15, 20, 0);
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
+    }else if(figureId === 6){
+      // 逆三角形
+      img.triangle(20, 20 + 24 / Math.sqrt(3), 32, 20 - (12 / Math.sqrt(3)), 8, 20 - (12 / Math.sqrt(3)));
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
+    }else if(figureId === 7){
+      // デフォルト用の円形
+      img.ellipse(20, 20, 20, 20);
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
     }
   }
   display(pos){
@@ -904,6 +991,31 @@ class activateGimic extends Gimic{
   }
 }
 
+class colorChangeGimic extends Gimic{
+  // 色を変化させるギミック
+  constructor(myFlowId, x, y, z, w){
+    super(myFlowId);
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.w = w;
+  }
+  action(_actor){
+    _actor.visual.changeColor(this.x, this.y, this.z, this.w);
+  }
+}
+
+class figureChangeGimic extends Gimic{
+  // 形を変化させるギミック
+  constructor(myFlowId, newFigureId){
+    super(myFlowId);
+    this.newFigureId = newFigureId;
+  }
+  action(_actor){
+    _actor.visual.changeFigure(this.newFigureId);
+  }
+}
+
 // flowに装飾をするのが仕事。
 // flowの性質そのものをいじるのが目的ではない。
 // myFlowIdはあくまで発動させるflowの場所を指定するだけで、
@@ -933,8 +1045,8 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 11; // うまくいくのかな・・
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
+    this.patternIndex = 12; // うまくいくのかな・・
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -990,15 +1102,21 @@ class entity{
     }
   }
   registFlow(paramSet, flag = true){
-    // paramSetはパラメータの辞書(params)の配列
+    // paramSetはパラメータの辞書(params)の配列。
     paramSet.forEach(function(params){
       let newFlow = entity.createFlow(params);
       this.flows.push(newFlow);
       if(flag){
-        this.baseFlows.push(newFlow);
-      }else{
-        this.addFlows.push(newFlow);
+        this.baseFlows.push(newFlow); //flagをoffにするとbaseFlowに入らないので描画されない。
       }
+    }, this);
+  }
+  registAddFlow(paramSet, flag = true){
+    // こちらはaddFlowに入れるためのあれ。
+    paramSet.forEach(function(params){
+      let newFlow = entity.createFlow(params);
+      this.flows.push(newFlow);
+      this.addFlows.push(newFlow);
     }, this);
   }
   connect(index, nextIndexList){
@@ -1326,6 +1444,7 @@ function createPattern9(){
 }
 
 // spiralFlowの実験. 落ちていく・・・落ちていく。
+// たくさん放り込んでどんどん落ちていくのが見たいです（おい）
 function createPattern10(){
   let vecs = getVector([100, 120, 140], [100, 120, 140]);
   let paramSet = getOrbitalFlow(vecs, [0, 1], [1, 2], 'straight');
@@ -1338,29 +1457,6 @@ function createPattern10(){
   all.connectMulti([1], [[2]]);
   all.activateAll();
 }
-/*
-function createPattern11(){
-  // colorControllerの実験。割とうまくいった。
-  let posX = multiSeq(arSeq(100, 100, 3), 3);
-  let posY = jointSeq([constSeq(100, 3), constSeq(200, 3), constSeq(300, 3)]);
-  let vecs = getVector(posX, posY);
-  let paramSet = getOrbitalFlow(vecs, [0, 1, 3, 4, 2, 4, 5, 3, 4, 8, 6, 7], [1, 2, 0, 1, 5, 3, 4, 6, 7, 5, 7, 8], 'straight');
-  all.registFlow(paramSet);
-  all.connectMulti(arSeq(0, 1, 12), [[1], [4], [0], [1], [6], [2, 7], [3, 5, 8], [10], [11], [6], [11], [9]]);
-  all.registActor([0], [2], [0]);
-  // colorControllerの働くflowを設定（描画しなくていいのでbaseFlowsには入れない）
-  vecs = [createVector(0, 100), createVector(100, 100)];
-  let f = new straightFlow(vecs[0], vecs[1], 1);
-  all.flows.push(f);
-  //all.baseFlows.push(f); // あ、そうか。
-  // あのですね。描画させないためにはbaseFlowsに入れなければよいそうです（当たり前だ・・・！）
-  // なんだ、visible操作要らないのか・・プロパティ増やす必要ないじゃん。
-  let cc = new colorController(f, 0, 0, 0.1); // colorController.
-  all.actors.push(cc);
-  cc.addTarget(all.actors[0].visual);
-  all.connectMulti([12], [[12]]); // 0から100まで増やすのを延々とやってもらう
-  all.activateAll();
-}*/
 
 function createPattern11(){
   // colorControllerの実験
@@ -1374,9 +1470,13 @@ function createPattern11(){
   all.registActor([1, 2 ,5, 6], [1.6, 1.9, 2.2, 2.5], [0, 1, 2, 3]);
   // さてと。
   vecs = getVector([0, 100, 50, 0, 100], [0, 0, 50, 100, 100]);
-  let start = [1, 2, 1, 0, 2, 4, 4, 3];
-  let end = [0, 0, 2, 3, 3, 2, 1, 4];
-  for(let i = 0; i < 8; i++){ all.flows.push(new straightFlow(vecs[start[i]], vecs[end[i]], 1)); }
+  //let start = [1, 2, 1, 0, 2, 4, 4, 3];
+  //let end = [0, 0, 2, 3, 3, 2, 1, 4];
+  // 描画させないためにはbaseFlowsに入れなければいいのでオプションください
+  paramSet = getOrbitalFlow(vecs, [1, 2 ,1, 0, 2, 4, 4, 3], [0, 0, 2, 3, 3, 2, 1, 4], 'straight');
+  // ↓このように、falseを指定することで描画されないようにできます。
+  all.registFlow(paramSet, false);
+  //for(let i = 0; i < 8; i++){ all.flows.push(new straightFlow(vecs[start[i]], vecs[end[i]], 1)); }
   // ccを作る
   let ccArray = [];
   ccArray.push(new colorController(all.flows[11], 0, 0, 0.1));
@@ -1395,6 +1495,49 @@ function createPattern11(){
   all.connectMulti(arSeq(10, 1, 8), [[13], [13], [11, 14], [17], [17], [11, 14], [10, 12], [15, 16]]);
   all.connectMulti([18, 19, 20], [[19], [20], [7, 9]]);
   console.log(all.flows[19]);
+  all.activateAll();
+}
+
+function createPattern12(){
+  // テスト用(走らせるだけ)
+  let posX = arSeq(50, 50, 9);
+  let posY = constSeq(100, 9);
+  let vecs = getVector(posX, posY);
+  let pattern = getOrbitalFlow(vecs, arSeq(0, 1, 8), arSeq(1, 1, 8), 'straight');
+  all.registFlow(pattern);
+  all.connectMulti(arSeq(0, 1, 7), [[1], [2], [3], [4], [5], [6], [7]]);
+  all.registActor([0], [1], [0]);
+
+  // ギミック仕込んでみる？
+  for(let i = 0; i < 8; i++){
+    let g = new figureChangeGimic(i, i);
+    all.completeGimic.push(g);
+  }
+  // カラーコントローラー仕込んでみる
+  posX = [0, 5, 10, 13, 17, 26, 35, 43, 52, 58, 64, 72, 80, 90, 100];
+  posY = [100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100];
+  vecs = getVector(posX, posY);
+  let spanSet = [24, 25, 24, 25, 24, 25, 24, 25, 24, 25, 24, 25, 24, 25];
+  pattern = getOrbitalEasingFlow(vecs, constSeq(0, 14), constSeq(0, 14), constSeq(0, 14), spanSet, arSeq(0, 1, 14), arSeq(1, 1, 14));
+  all.registFlow(pattern, false);
+  all.flows.push(new waitFlow(50)); // 最後はwaitでいいよ
+  // またつなぐの忘れた。。番号は15本なので8～22ですね。
+  all.connectMulti(arSeq(8, 1, 15), [[9], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [8]]);
+  // さっきのは本体の色用。次に背景色のやつ用意する
+  posY = [30, 0, 30, 0, 30, 0, 30, 0, 30, 0, 30, 0, 30, 0, 30];
+  vecs = getVector(posX, posY);
+  pattern = getOrbitalEasingFlow(vecs, constSeq(0, 14), constSeq(0, 14), constSeq(0, 14), spanSet, arSeq(0, 1, 14), arSeq(1, 1, 14));
+  all.registFlow(pattern, false);
+  all.flows.push(new waitFlow(50)); // 最後はwaitで。
+  // つなぐ。15本なので23～37ですね。
+  all.connectMulti(arSeq(23, 1, 15), [[24], [25], [26], [27], [28], [29], [30], [31], [32], [33], [34], [35], [36], [37], [23]]);
+  // どうやるんだっけ（おい）
+  let cc = new colorController(all.getFlow(8), 0, 100, 1)
+  all.actors.push(cc);
+  cc.addTarget(all.actors[0].visual);  // また間違えた、visualを入れるんだった・・
+  let bcc = new backgroundColorController(all.getFlow(23), 0, 50, 1);
+  all.actors.push(bcc);
+
   all.activateAll();
 }
 
@@ -1452,6 +1595,28 @@ function arSinSeq(start, interval, n, radius = 1, pivot = 0){
   let array = [];
   for(let i = 0; i < n; i++){ array.push(pivot + radius * sin(start + interval * i)); }
   return array;
+}
+
+function rotationSeq(x, y, angle, n, centerX = 0, centerY = 0){
+  // (x, y)をangleだけ0回～n-1回回転させたもののセットを返す(中心はオプション、デフォルトは0, 0)
+  let array = [];
+  let vec = createVector(x, y);
+  array.push(createVector(x + centerX, y + centerY));
+  for(let k = 1; k < n; k++){
+    vec.set(vec.x * cos(angle) - vec.y * sin(angle), vec.x * sin(angle) + vec.y * cos(angle));
+    array.push(createVector(vec.x + centerX, vec.y + centerY));
+  }
+  return array;
+}
+
+function multiRotationSeq(array, angle, n, centerX = 0, centerY = 0){
+  // arrayの中身をすべて然るべくrotationしたものの配列を返す
+  let finalArray = [];
+  array.forEach(function(vec){
+    let rotArray = rotationSeq(vec.x, vec.y, angle, n, centerX, centerY);
+    finalArray = finalArray.concat(rotArray);
+  })
+  return finalArray;
 }
 
 function randomInt(n){
@@ -1514,11 +1679,13 @@ function funcP5(x){ return -12 * pow(x, 3) + 18 * pow(x, 2) - 5 * x; } // バッ
 function funcP6(x){ return (x / 8) + (7 / 8) * pow(x, 4); } // ゆっくり からの ぎゅーーーん
 function funcP7(x){ return (7 / 8) + (x / 8) - (7 / 8) * pow(1 - x, 4); } // ぎゅーーーん からの ゆっくり
 function funcP8(x){ return 0.5 * (1 - cos(9 * PI * x)); } // 波打つやつ
+// 0.5までゆっくりぎゅーんのあと停止
+function funcP9(x){ return min(192 * pow(x, 5) - 240 * pow(x, 4) + 80 * pow(x, 3), 1); }
 
 function funcN0(x){ return 0; }
 function funcN1(x){ return sin(10 * PI * x); }
 
-// 微分
+// 微分. パラメータ取れるようにしよう。
 function sfuncP0(x){ return 1; }
 function sfuncP1(x){ return 0.1 * x; }
 function sfuncP2(x){ return 1 - cos(x); }
