@@ -1,4 +1,5 @@
 // flowベースでの書き換えをする実験～～
+// sizeFactorは今後の課題ということで・・・
 
 'use strict';
 let all; // 全体
@@ -839,23 +840,7 @@ class figure{
     this.figureId = newFigureId;
     //console.log(this.figureId);
     figure.setGraphic(this.graphic, this.myColor, this.figureId, this.sizeFactor); // update.
-  }/*
-  static setGraphic(img, myColor, figureId = 0, sizeFactor = 0.8){
-    // 形のバリエーション増やす～
-    img.clear();
-    img.noStroke();
-    img.fill(myColor);
-    let r = 10 * sizeFactor;
-    if(figureId === 0){
-      img.rect(20 - r, 20 - r, 2 * r, 2 * r);
-    }else if(figureId === 1){
-      r *= 1.1;
-      img.ellipse(20, 20, 2 * r, 2 * r);
-    }else if(figureId === 2){
-      r *= 1.2;
-      img.triangle(20, 20 - 2 * r / Math.sqrt(3), 20 + r, 20 + (r / Math.sqrt(3)), 20 - r, 20 + (r / Math.sqrt(3)));
-    }
-  }*/
+  }
   static setGraphic(img, myColor, figureId = 0, sizeFactor = 0.8){
     // 形のバリエーション増やす
     img.clear();
@@ -877,6 +862,9 @@ class figure{
         let l = (i + 3) % 5;
         img.quad(outer[i].x, outer[i].y, inner[k].x, inner[k].y, 20, 20, inner[l].x, inner[l].y);
       }
+      img.fill(255);
+      img.rect(15, 17, 2, 5);
+      img.rect(23, 17, 2, 5);
     }else if(figureId === 2){
       // 三角形
       img.triangle(20, 20 - 24 / Math.sqrt(3), 32, 20 + (12 / Math.sqrt(3)), 8, 20 + (12 / Math.sqrt(3)));
