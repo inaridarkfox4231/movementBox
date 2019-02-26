@@ -232,6 +232,8 @@ class colorSortHub extends flow{
   }
 } // そのうち別プロジェクトでやるつもり。
 
+// これも辞書があればloopCountに入れるだけでいいから楽よね。
+// 出るとき削除するだけ、idも登録の必要がないし。
 class gateHub extends flow{
   // gateHubはforLoopを模式化したもので、そこを何回も訪れたactorに別の行先を提供するもの。
   constructor(norma){
@@ -271,22 +273,18 @@ class gateHub extends flow{
 // うぁぁ時間無駄にしたショック大きすぎて立ち直れない・・・・・・・・・
 class standardRegenerateHub extends flow{
   // これを通すと色とか形とかスピードとかもろもろ変化する感じ。
-  constructor(newColorHue = -1, newSpeed = -1, newFigureId = 0, newSizeFactor = 0.8){
+  constructor(newColorHue = -1, newSpeed = -1){
     super();
     this.newColorHue = newColorHue;
     this.newSpeed = newSpeed;
-    this.newFigureId = newFigureId;
-    this.newSizeFactor = newSizeFactor;
   }
   execute(_actor){
     // -1のときはランダム
     let colorHue = (this.newColorHue < 0 ? randomInt(100) : this.newColorHue);
     let speed = (this.newSpeed < 0 ? 2 + random(2) : this.newSpeed);
-    let figureId = this.newFigureId;
-    let sizeFactor = this.newSizeFactor;
     let newColor = color(colorHue, 100, 100);
     _actor.visual.myColor = newColor;
-    _actor.setVisual(newColor, figureId, sizeFactor); // あああspeedじゃないいいいいいい
+    _actor.setVisual(newColor); // あああspeedじゃないいいいいいい
     _actor.setSpeed(speed);
     //_actor.visual.colorId = colorId; // カラーインデックスを更新
     _actor.activate(); // non-Activeになってるのを想定してもいる
@@ -711,11 +709,11 @@ class actor{
 // 色や形を与えられたactor. ビジュアル的に分かりやすいので今はこれしか使ってない。
 // myColorは廃止。visualがすべてを担う、まあ当然よね。
 class movingActor extends actor{
-  constructor(f = undefined, speed = 1, colorId = 0, figureId = 0, sizeFactor = 0.8){
+  constructor(f = undefined, speed = 1, colorId = 0){
     super(f);
     this.pos = createVector(-100, -100); // flowが始まれば勝手に・・って感じ。
     let colorOfActor = color(hue(palette[colorId]), saturation(palette[colorId]), 100); // 自分の色。
-    this.visual = new rollingFigure(colorOfActor, figureId, sizeFactor); // 回転する図形
+    this.visual = new rollingFigure(colorOfActor); // 回転する図形
     this.speed = speed; // 今の状況だとスピードも要るかな・・クラスとして分離するかは要相談（composition）
     this.visible = true;
     // 辞書を持たせたい。initializeで必要な情報を登録してexecuteで使うの。
@@ -731,8 +729,8 @@ class movingActor extends actor{
     this.speed = newSpeed;
   }
   // 今ここにsetVisualを作りたい。色id, サイズとか形とか。
-  setVisual(newColorId, newFigureId, newSizeFactor){
-    this.visual.reset(newColorId, newFigureId, newSizeFactor);
+  setVisual(newColorId){
+    this.visual.reset(newColorId);
   }
   show(){ this.visible = true; }   // 姿を現す
   hide(){ this.visible = false; }  // 消える
@@ -773,11 +771,8 @@ class colorController extends controller{
     // モードの概念を加えれば、2つまでいじれる、かな・・・
   }
   in_progressAction(){
-    //console.log(this.pos);
     let thirdValue = brightness(this.targetArray[0].myColor);
     let fourceValue = alpha(this.targetArray[0].myColor);
-    //console.log(brightness(this.targetArray[0].myColor));
-    //console.log(alpha(this.targetArray[0].myColor));
     this.currentFlow.execute(this); // 実行！この中で適切なタイミングでsetState(COMPLETED)してもらうの
     this.targetArray.forEach(function(target){ target.changeColor(this.pos.x, this.pos.y, thirdValue, fourceValue); }, this)
   }
@@ -822,92 +817,30 @@ actor.index = 0; // 0, 1, 2, 3, ....
 // やることは図形を表示させること、回転はオプションかな・・
 // たとえばアイテムとか、オブジェクト的な奴とか。回転しないことも考慮しないとなぁ。
 class figure{
-  constructor(myColor, figureId = 0, sizeFactor = 0.8){
+  constructor(myColor){
     this.myColor = myColor; // 色クラス使いまーす
-    // shootingGameの方でもグラデ使いたいんだけどどうすっかなー、ま、どうにでもできるか。
-    // こういうのどうにでもできる強さがあればいいんじゃない？はやいとこ色々作りたいよ。
-    this.figureId = figureId; // 図形のタイプ
-    this.sizeFactor = sizeFactor; // おおきさ
+    // サイズと形廃止
     this.graphic = createGraphics(40, 40);
-    //inputGraphic(this.graphic, colorId);
-    figure.setGraphic(this.graphic, this.myColor, figureId, sizeFactor);
+    figure.setGraphic(this.graphic, this.myColor);
   }
-  reset(newColor, newFigureId, newSizeFactor){
-    figure.setGraphic(this.graphic, newColor, newFigureId, newSizeFactor);
+  reset(newColor){
+    figure.setGraphic(this.graphic, newColor);
   }
   changeColor(x, y, z, w){ // 色が変わるといいね（え？）
     this.myColor = color(x, y, z, w);
-    //console.log(this.myColor);
-    figure.setGraphic(this.graphic, this.myColor, this.figureId, this.sizeFactor); // update.
+    figure.setGraphic(this.graphic, this.myColor); // update.
   }
-  changeFigure(newFigureId){ // 形が変わる
-    this.figureId = newFigureId;
-    //console.log(this.figureId);
-    figure.setGraphic(this.graphic, this.myColor, this.figureId, this.sizeFactor); // update.
-  }
-  static setGraphic(img, myColor, figureId = 0, sizeFactor = 0.8){
-    // 形のバリエーション増やす
+  static setGraphic(img, myColor){
+    // 形のバリエーションは個別のプログラムでやってね
     img.clear();
     img.noStroke();
     img.fill(myColor);
-    let r = 10 * sizeFactor;
-    if(figureId === 0){
-      // 正方形
-      img.rect(10, 10, 20, 20);
-      img.fill(255);
-      img.rect(15, 15, 2, 5);
-      img.rect(23, 15, 2, 5);
-    }else if(figureId === 1){
-      // 星型
-      let outer = rotationSeq(0, -12, 2 * PI / 5, 5, 20, 20);
-      let inner = rotationSeq(0, 6, 2 * PI / 5, 5, 20, 20);
-      for(let i = 0; i < 5; i++){
-        let k = (i + 2) % 5;
-        let l = (i + 3) % 5;
-        img.quad(outer[i].x, outer[i].y, inner[k].x, inner[k].y, 20, 20, inner[l].x, inner[l].y);
-      }
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }else if(figureId === 2){
-      // 三角形
-      img.triangle(20, 20 - 24 / Math.sqrt(3), 32, 20 + (12 / Math.sqrt(3)), 8, 20 + (12 / Math.sqrt(3)));
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }else if(figureId === 3){
-      // ひしがた
-      img.quad(28, 20, 20, 20 - 10 * Math.sqrt(3), 12, 20, 20, 20 + 10 * Math.sqrt(3));
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }else if(figureId === 4){
-      // 六角形
-      img.quad(32, 20, 26, 20 - 6 * Math.sqrt(3), 14, 20 - 6 * Math.sqrt(3), 8, 20);
-      img.quad(32, 20, 26, 20 + 6 * Math.sqrt(3), 14, 20 + 6 * Math.sqrt(3), 8, 20);
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }else if(figureId === 5){
-      // なんか頭ちょろってやつ
-      img.ellipse(20, 20, 20, 20);
-      img.triangle(20, 20, 20 - 5 * Math.sqrt(3), 15, 20, 0);
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }else if(figureId === 6){
-      // 逆三角形
-      img.triangle(20, 20 + 24 / Math.sqrt(3), 32, 20 - (12 / Math.sqrt(3)), 8, 20 - (12 / Math.sqrt(3)));
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }else if(figureId === 7){
-      // デフォルト用の円形
-      img.ellipse(20, 20, 20, 20);
-      img.fill(255);
-      img.rect(15, 17, 2, 5);
-      img.rect(23, 17, 2, 5);
-    }
+    // 正方形
+    img.rect(10, 10, 20, 20);
+    img.fill(255);
+    img.rect(16, 16, 2, 5);
+    img.rect(24, 16, 2, 5);
+    // 汎用コードなのにサイズとか考えるべきではなかったのだ。以上。（え・・）
   }
   display(pos){
     push();
@@ -917,10 +850,10 @@ class figure{
   }
 }
 
-// というわけでrollingFigure.
+// というわけでrollingFigure. // id指定になってたので修正。
 class rollingFigure extends figure{
-  constructor(colorId, figureId = 0, sizeFactor = 0.8){
-    super(colorId, figureId, sizeFactor);
+  constructor(myColor){
+    super(myColor);
     //this.rotation = random(2 * PI);
     this.rotation = 0; // 0にしよー
   }
@@ -996,17 +929,7 @@ class colorChangeGimic extends Gimic{
     _actor.visual.changeColor(this.x, this.y, this.z, this.w);
   }
 }
-
-class figureChangeGimic extends Gimic{
-  // 形を変化させるギミック
-  constructor(myFlowId, newFigureId){
-    super(myFlowId);
-    this.newFigureId = newFigureId;
-  }
-  action(_actor){
-    _actor.visual.changeFigure(this.newFigureId);
-  }
-}
+// 形を変化させるギミックは廃止
 
 // flowに装飾をするのが仕事。
 // flowの性質そのものをいじるのが目的ではない。
@@ -1037,7 +960,8 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 10; // うまくいくのかな・・
+    this.patternIndex = 0; // うまくいくのかな・・
+    //this.patternArray = [createPattern0] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
     this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
   }
   getFlow(givenIndex){
@@ -1081,15 +1005,7 @@ class entity{
     // flowはメソッドでidから取得。
     for(let i = 0; i < flowIds.length; i++){
       let f = this.getFlow(flowIds[i]);
-      let newActor = new movingActor(f, speeds[i], colorIds[i])
-      this.actors.push(newActor);
-    }
-  }
-  registDetailedActor(flowIds, speeds, colorIds, figureIds, sizeIds){
-    // 個別に形とか大きさとか指定する
-    for(let i = 0; i < flowIds.length; i++){
-      let f = this.getFlow(flowIds[i]);
-      let newActor = new movingActor(f, speeds[i], colorIds[i], figureIds[i], sizeIds[i]);
+      let newActor = new movingActor(f, speeds[i], colorIds[i]);
       this.actors.push(newActor);
     }
   }
@@ -1167,7 +1083,6 @@ class entity{
   }
   update(){
     this.actors.forEach(function(_actor){
-      //console.log(_actor);
       _actor.update(); // flowもupdateしたいんだけどね
     }) // addFlowsを毎フレームupdateできないか考えてみる。なんなら新しくクラス作るとか。activeFlow（？？？）
   }
@@ -1487,7 +1402,7 @@ function createPattern11(){
   all.connectMulti(arSeq(0, 1, 10), [[1], [2], [3, 18], [0, 8], [5], [6], [7, 9], [4], [4], [3]]);
   all.connectMulti(arSeq(10, 1, 8), [[13], [13], [11, 14], [17], [17], [11, 14], [10, 12], [15, 16]]);
   all.connectMulti([18, 19, 20], [[19], [20], [7, 9]]);
-  console.log(all.flows[19]);
+
   all.activateAll();
 }
 
@@ -1512,7 +1427,6 @@ function constSeq(c, n){
 function jointSeq(arrayOfArray){
   // 全部繋げる
   let array = arrayOfArray[0];
-  //console.log(array);
   for(let i = 1; i < arrayOfArray.length; i++){
     array = array.concat(arrayOfArray[i]);
   }
