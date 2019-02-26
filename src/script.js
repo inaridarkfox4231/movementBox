@@ -221,7 +221,7 @@ class colorSortHub extends flow{
     this.targetColor = targetColor;
   }
   convert(_actor){
-    let hueValue = hue(_actor.myColor);
+    let hueValue = hue(_actor.visual.myColor);
     let judgeValue = Math.floor(hueValue / 15);
     if(judgeValue === this.targetColor){
       this.nextFlowIndex = 1;
@@ -283,11 +283,11 @@ class standardRegenerateHub extends flow{
     let colorHue = (this.newColorHue < 0 ? randomInt(100) : this.newColorHue);
     let speed = (this.newSpeed < 0 ? 2 + random(2) : this.newSpeed);
     let figureId = this.newFigureId;
-    let sizeFactor = this.sizeFactor;
-    _actor.myColor = color(colorHue, 100, 100);
-    _actor.setVisual(_actor.myColor, figureId, sizeFactor); // あああspeedじゃないいいいいいい
+    let sizeFactor = this.newSizeFactor;
+    let newColor = color(colorHue, 100, 100);
+    _actor.visual.myColor = newColor;
+    _actor.setVisual(newColor, figureId, sizeFactor); // あああspeedじゃないいいいいいい
     _actor.setSpeed(speed);
-    _actor.visual.myColor = _actor.myColor;
     //_actor.visual.colorId = colorId; // カラーインデックスを更新
     _actor.activate(); // non-Activeになってるのを想定してもいる
     _actor.show(); // 消えてるなら姿を現す
@@ -435,6 +435,8 @@ class shootingFlow extends ejectiveFlow{
 
 // 中心決まってて、こいつに向かう単位ベクトルにイージングかけて毎ターン足すだけ。ejectはオーバーライド
 // して中心に近くても消えるようにする
+// きちんとしたのは作ります、きちんと。
+// その前に辞書。
 class spiralFlow extends ejectiveFlow{
   constructor(center, easeId1, easeId2){
     super();
@@ -448,6 +450,7 @@ class spiralFlow extends ejectiveFlow{
     let parallelFactor = spiralParallel[this.easeId1](cnt);
     let normalFactor = spiralNormal[this.easeId2](cnt);
     let v = p5.Vector.sub(_actor.pos, this.center).normalize(); // 中心からこいつに向かう単位ベクトル
+    // 毎フレーム正規化してるのかよ・・計算量。。
     _actor.pos.x += (v.x * parallelFactor + v.y * normalFactor) * _actor.speed;
     _actor.pos.y += (v.y * parallelFactor - v.x * normalFactor) * _actor.speed;
     // たとえばnormalFactorが0ならとんでくしparallelが0なら回る（はず）
@@ -706,14 +709,16 @@ class actor{
 }
 
 // 色や形を与えられたactor. ビジュアル的に分かりやすいので今はこれしか使ってない。
+// myColorは廃止。visualがすべてを担う、まあ当然よね。
 class movingActor extends actor{
   constructor(f = undefined, speed = 1, colorId = 0, figureId = 0, sizeFactor = 0.8){
     super(f);
     this.pos = createVector(-100, -100); // flowが始まれば勝手に・・って感じ。
-    this.myColor = color(hue(palette[colorId]), saturation(palette[colorId]), 100); // 自分の色。
-    this.visual = new rollingFigure(this.myColor, figureId, sizeFactor); // 回転する図形
+    let colorOfActor = color(hue(palette[colorId]), saturation(palette[colorId]), 100); // 自分の色。
+    this.visual = new rollingFigure(colorOfActor, figureId, sizeFactor); // 回転する図形
     this.speed = speed; // 今の状況だとスピードも要るかな・・クラスとして分離するかは要相談（composition）
     this.visible = true;
+    // 辞書を持たせたい。initializeで必要な情報を登録してexecuteで使うの。
   }
   setPos(x, y){ // そのうちゲーム作ってみるとかなったら全部これ経由しないとね。
     this.pos.x = x;
