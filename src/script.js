@@ -1,5 +1,9 @@
 // flowベースでの書き換えをする実験～～
-// sizeFactorは今後の課題ということで・・・
+
+// sizeFactorは廃止。sortingMachineは段ボール箱のやつで、、箱で。
+// 明日はcompletionをflowのメソッドに追加していくつかのflowの内容を整理するのと、
+// あとあれ、ボールを運ぶゲーム、実装の入口に立ちたいのと、
+// それとcircularFlowをinfo使ってサクッと書いてしまう。
 
 'use strict';
 let all; // 全体
@@ -19,7 +23,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 1;
+const PATTERN_NUM = 12;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -936,8 +940,8 @@ class entity{
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
     this.patternIndex = 0; // うまくいくのかな・・
-    this.patternArray = [createPattern9] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
-    //this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
+    //this.patternArray = [createPattern9] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1448,6 +1452,22 @@ function multiRotationSeq(array, angle, n, centerX = 0, centerY = 0){
     finalArray = finalArray.concat(rotArray);
   })
   return finalArray;
+}
+
+function commandShuffle(array, sortArray){
+  // arrayを好きな順番にして返す。たとえばsortArrayが[0, 3, 2, 1]なら[array[0], array[3], array[2], array[1]].
+  let newArray = [];
+  for(let i = 0; i < array.length; i++){
+    newArray.push(array[sortArray[i]]);
+  }
+  return newArray; // もちろんだけどarrayとsortArrayの長さは同じでsortArrayは0~len-1のソートでないとエラーになる
+}
+
+function reverseShuffle(array){
+  // 通常のリバース。
+  let newArray = [];
+  for(let i = 0; i < array.length; i++){ newArray.push(array[array.length - i - 1]); }
+  return newArray;
 }
 
 function randomInt(n){
