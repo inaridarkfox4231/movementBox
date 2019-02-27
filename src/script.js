@@ -23,7 +23,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 12;
+const PATTERN_NUM = 1;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -134,6 +134,7 @@ class flow{
   execute(_actor){
     _actor.setState(COMPLETED) // デフォルトはstateをCOMPLETEDにするだけ。こっちはタイミング決めるのはflowですから。
   }
+  update(){} // どうせならもうupdate標準装備にしようぜ
   convert(_actor){
     //_actor.setState(IDLE); // IDLEにするのはactor.
     if(this.convertList.length === 0){
@@ -198,6 +199,8 @@ class assembleRotaryHub extends assembleHub{
   constructor(limit){
     super(limit);
     // -1から始まって0, 1, 2, ..., n-1, 0って感じで。
+    // これnextFlowIndexのデフォルトが-1になってること利用してるの・・・？
+    // それはインチキでしょう・・だって行先明確なのに・・。0デフォで動くようにしたら？
   }
   execute(_actor){
     if(this.open){
@@ -299,6 +302,27 @@ class rotaryHub extends flow{
   convert(_actor){
     _actor.setFlow(this.convertList[this.nextFlowIndex]);
     this.nextFlowIndex = (this.nextFlowIndex + 1) % this.convertList.length;
+  }
+}
+
+class rectifierHub extends flow{
+  // 整流器。intervalごとに1匹通す。回転ずしで使えそう。あとはディレイとかかなぁ・・
+  constructor(interval){
+    super();
+    this.timer = new counter();
+    this.interval = interval;
+    this.open = true;
+  }
+  execute(_actor){
+    if(this.open){
+      _actor.setState(COMPLETED);
+      this.open = false;
+      this.timer.reset();
+    }
+  }
+  update(){
+    this.timer.step();
+    if(this.timer.getCnt() >= this.interval){ this.open = true; }
   }
 }
 
@@ -506,12 +530,11 @@ class orbitalEasingFlow extends easingFlow{
     super(easeId_parallel, easeId_normal, ratio, spanTime)
     this.from = from;
     this.to = to; // fromとtoがベクトルで与えられる最も一般的な形
-    this.diffVector;
+    this.diffVector = this.calcDiffVector(this.from, this.to);
     this.spanTime = spanTime // -1指定一旦やめよう。面倒くさくなってきた。固定でいいよ。
   }
   initialize(_actor){
     _actor.pos.set(this.from.x, this.from.y); // orbitalなので初期位置を設定
-    this.diffVector = this.calcDiffVector(this.from, this.to); // fromとtoから計算
     _actor.timer.reset(); // spanTimeは具体的な指定以外禁止にしました（めんどい）
   }
   execute(_actor){
@@ -939,9 +962,9 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 12; // うまくいくのかな・・
-    //this.patternArray = [createPattern9] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12];
+    this.patternIndex = 0; // うまくいくのかな・・
+    this.patternArray = [createPattern13] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
+    //this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12, createPattern13];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1065,6 +1088,9 @@ class entity{
     this.actors.forEach(function(_actor){
       _actor.update(); // flowもupdateしたいんだけどね
     }) // addFlowsを毎フレームupdateできないか考えてみる。なんなら新しくクラス作るとか。activeFlow（？？？）
+    this.flows.forEach(function(_flow){
+      _flow.update(); // 何するのかは未定
+    })
   }
   draw(){
     image(this.base, 0, 0);
@@ -1387,6 +1413,23 @@ function createPattern12(){
   let paramSet = getOrbitalEasingFlow(vecs, constSeq(9, 36), constSeq(1, 36), constSeq(0.05, 36), constSeq(120, 36), arSeq(0, 1, 36), constSeq(36, 36));
   all.registFlow(paramSet);
   all.registActor(arSeq(0, 1, 36), constSeq(1, 36), constSeq(0, 36));
+  all.activateAll();
+}
+
+function createPattern13(){
+  // rectifierHubを使ってみる（整流器）
+  let vecs = getVector([100, 200, 300], [100, 200, 300]);
+  let paramSet = getOrbitalFlow(vecs, [0, 1], [1, 2], 'straight');
+  all.registFlow(paramSet);
+  let h = new rectifierHub(10);
+  all.flows.push(h);
+  let posX = arSinSeq(0, 2 * PI / 36, 36, 100, 300);
+  let posY = arCosSeq(0, 2 * PI / 36, 36, 100, 300);
+  vecs = getVector(posX, posY);
+  let muzzle = new orientedMuzzle(0, 0, 0.1, 60, DIRECT, vecs, 0);
+  all.flows.push(muzzle);
+  all.connectMulti([0, 1, 2], [[1], [2], [3]]);
+  all.registActor(constSeq(0, 36), constSeq(4, 36), constSeq(0, 36));
   all.activateAll();
 }
 
