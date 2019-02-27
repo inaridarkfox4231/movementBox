@@ -11,8 +11,8 @@ let backgroundColor;
 let palette; // カラーパレット
 
 // orientedMuzzle用。parallelは[0,1]→[0,1]で、normalは[0,1]上で0から0へみたいな。
-let parallelFunc = [funcP0, funcP1, funcP2, funcP3, funcP4, funcP5, funcP6, funcP7, funcP8];
-let normalFunc = [funcN0, funcN1];
+let parallelFunc = [funcP0, funcP1, funcP2, funcP3, funcP4, funcP5, funcP6, funcP7, funcP8, funcP9, funcP10];
+let normalFunc = [funcN0, funcN1, funcN2];
 
 // shooting用。parallelは基本的に0以上に対して∞まで増大していく感じ、たださほど大きくならない・・
 // normalの方は0付近をうろうろする？まあはじけてもいい、その場合は外れて飛んでいく。
@@ -939,9 +939,9 @@ class entity{
     this.actors = [];
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
-    this.patternIndex = 0; // うまくいくのかな・・
+    this.patternIndex = 12; // うまくいくのかな・・
     //this.patternArray = [createPattern9] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
-    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11];
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1061,6 +1061,7 @@ class entity{
     }, this)
   }
   update(){
+    // flowも？
     this.actors.forEach(function(_actor){
       _actor.update(); // flowもupdateしたいんだけどね
     }) // addFlowsを毎フレームupdateできないか考えてみる。なんなら新しくクラス作るとか。activeFlow（？？？）
@@ -1377,6 +1378,18 @@ function createPattern11(){
   all.activateAll();
 }
 
+function createPattern12(){
+  // 最初のぎゅっ(何が正しいんだ・・・・)
+  let posX = arSinSeq(0, 2 * PI / 36, 36, 100, 300);
+  let posY = arCosSeq(0, 2 * PI / 36, 36, 100, 300);
+  let vecs = getVector(posX, posY);
+  vecs.push(createVector(300, 300));
+  let paramSet = getOrbitalEasingFlow(vecs, constSeq(9, 36), constSeq(1, 36), constSeq(0.05, 36), constSeq(120, 36), arSeq(0, 1, 36), constSeq(36, 36));
+  all.registFlow(paramSet);
+  all.registActor(arSeq(0, 1, 36), constSeq(1, 36), constSeq(0, 36));
+  all.activateAll();
+}
+
 // 速度を与えて毎フレームその分だけ移動するとか？その場合イージングはどうなる・・
 
 // --------------------------------------------------------------------------------------- //
@@ -1532,9 +1545,12 @@ function funcP7(x){ return (7 / 8) + (x / 8) - (7 / 8) * pow(1 - x, 4); } // ぎ
 function funcP8(x){ return 0.5 * (1 - cos(9 * PI * x)); } // 波打つやつ
 // 0.5までゆっくりぎゅーんのあと停止
 function funcP9(x){ return min(192 * pow(x, 5) - 240 * pow(x, 4) + 80 * pow(x, 3), 1); }
+// もういいかげんにしろー
+function funcP10(x){ return x + sin(2 * PI * x); }
 
 function funcN0(x){ return 0; }
 function funcN1(x){ return sin(10 * PI * x); }
+function funcN2(x){ return sin(2 * PI * x); }
 
 // 微分. パラメータ取れるようにしよう。
 function sfuncP0(x){ return 1; }
