@@ -11,8 +11,8 @@ let backgroundColor;
 let palette; // カラーパレット
 
 // orientedMuzzle用。parallelは[0,1]→[0,1]で、normalは[0,1]上で0から0へみたいな。
-let parallelFunc = [funcP0, funcP1, funcP2, funcP3, funcP4, funcP5, funcP6, funcP7, funcP8, funcP9, funcP10];
-let normalFunc = [funcN0, funcN1, funcN2];
+let parallelFunc = [funcP0, funcP1, funcP2, funcP3, funcP4, funcP5, funcP6, funcP7, funcP8, funcP9, funcP10, funcP11, funcP12];
+let normalFunc = [funcN0, funcN1, funcN2, funcN3];
 
 // shooting用。parallelは基本的に0以上に対して∞まで増大していく感じ、たださほど大きくならない・・
 // normalの方は0付近をうろうろする？まあはじけてもいい、その場合は外れて飛んでいく。
@@ -481,6 +481,44 @@ class spiralFlow extends ejectiveFlow{
     }else if(p5.Vector.dist(this.center, _actor.pos) < 10){
       _actor.setState(COMPLETED);
       _actor.hide(); // 中心に近い場合
+    }
+  }
+}
+
+// あとでshootingFlowに改名する
+// vecsの方向にとばしていく。複数ある時はrevolveする。飛ばす方向は辞書登録。
+class shootFlow extends ejectiveFlow{
+  constructor(easeId_parallel, easeId_normal, vecs){
+    super();
+    this.easeId_parallel = easeId_parallel;
+    this.easeId_normal = easeId_normal;
+    this.muzzleSet = vecs;
+    this.currentMuzzle = 0; // モード用意してランダムで選ばれるようにするとかいろいろできる。
+  }
+  initialize(_actor){
+    _actor.timer.reset();
+    _actor.info['from'] = _actor.pos; // これ忘れてた。
+    _actor.info['direction'] = p5.Vector.mult(this.muzzleSet[this.currentMuzzle], _actor.speed);
+    this.currentMuzzle = (this.currentMuzzle + 1) % this.muzzleSet.length; // マズルを回す
+  }
+  execute(_actor){
+    _actor.timer.step(); // むせいげん
+    let cnt = _actor.timer.getCnt();
+    let parallelEasing = parallelFunc[this.easeId_parallel](cnt);
+    let normalEasing = normalFunc[this.easeId_normal](cnt);
+    let p = _actor.info['from'];
+    let v = _actor.info['direction'];
+    _actor.pos.x = p.x + v.x * parallelEasing + v.y * normalEasing;
+    _actor.pos.y = p.y + v.y * parallelEasing - v.x * normalEasing; // これでいいの？
+    this.eject(_actor);
+  }
+  eject(_actor){
+    // 画面外に出たら抹殺
+    if(_actor.pos.x > width || _actor.pos.x < 0 || _actor.pos.y < 0 || _actor.pos.y > height){
+      _actor.setState(COMPLETED);
+      _actor.hide(); // 姿を消す
+      delete _actor.info['from'];
+      delete _actor.info['direction']; // 登録データを削除
     }
   }
 }
@@ -963,7 +1001,7 @@ class entity{
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
     this.patternIndex = 0; // うまくいくのかな・・
-    this.patternArray = [createPattern13] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
+    this.patternArray = [createPattern14] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
     //this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12, createPattern13];
   }
   getFlow(givenIndex){
@@ -1433,6 +1471,24 @@ function createPattern13(){
   all.activateAll();
 }
 
+function createPattern14(){
+  // shootFlowの実験
+  let vecs = getVector([300, 300, 300], [100, 150, 200]);
+  let paramSet = getOrbitalFlow(vecs, [0, 1], [1, 2], 'straight');
+  all.registFlow(paramSet);
+  // orientedMuzzle.
+  vecs = getVector([-100, 0, 100], [100, 100, 100]);
+  let startFlow = new orientedMuzzle(0, 0, 0, 60, DIFF, vecs, 0);
+  all.flows.push(startFlow);
+  // infiniteMuzzle.
+  vecs = getVector([0.1, 0, -0.1], [0.1, 0.1, 0.1]);
+  let testFlow = new shootFlow(12, 0, vecs);
+  all.flows.push(testFlow);
+  all.connectMulti([0, 1, 2], [[1], [2], [3]]);
+  all.registActor([0, 0, 0], [1, 1, 1], [0, 1, 2]);
+  all.activateAll();
+}
+
 // 速度を与えて毎フレームその分だけ移動するとか？その場合イージングはどうなる・・
 
 // --------------------------------------------------------------------------------------- //
@@ -1591,9 +1647,17 @@ function funcP9(x){ return min(192 * pow(x, 5) - 240 * pow(x, 4) + 80 * pow(x, 3
 // もういいかげんにしろー
 function funcP10(x){ return x + sin(2 * PI * x); }
 
+// infinite用
+function funcP11(x){ return Math.sqrt(x); }
+function funcP12(x){ return pow(x, 1.2); }
+
 function funcN0(x){ return 0; }
 function funcN1(x){ return sin(10 * PI * x); }
 function funcN2(x){ return sin(2 * PI * x); }
+
+// そうだ、shootingFlowとcircularFlowだけパラメータ取るようにしよう。それでいこう。
+// パラメータは辞書に含めましょう。たてよこ2つまで、合計4つ。
+function funcN3(x){ return 30 * sin(x / 3); }
 
 // 微分. パラメータ取れるようにしよう。
 function sfuncP0(x){ return 1; }
