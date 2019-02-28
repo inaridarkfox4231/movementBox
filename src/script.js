@@ -497,7 +497,8 @@ class shootFlow extends ejectiveFlow{
   }
   initialize(_actor){
     _actor.timer.reset();
-    _actor.info['from'] = _actor.pos; // これ忘れてた。
+    //_actor.info['from'] = _actor.pos; // これ忘れてた。ふぇぇポインタ渡してた。。。。
+    _actor.info['from'] = createVector(_actor.pos.x, _actor.pos.y); // これでいいよね
     _actor.info['direction'] = p5.Vector.mult(this.muzzleSet[this.currentMuzzle], _actor.speed);
     this.currentMuzzle = (this.currentMuzzle + 1) % this.muzzleSet.length; // マズルを回す
   }
@@ -511,6 +512,7 @@ class shootFlow extends ejectiveFlow{
     _actor.pos.x = p.x + v.x * parallelEasing + v.y * normalEasing;
     _actor.pos.y = p.y + v.y * parallelEasing - v.x * normalEasing; // これでいいの？
     this.eject(_actor);
+    console.log(_actor.info['from']);
   }
   eject(_actor){
     // 画面外に出たら抹殺
@@ -1481,8 +1483,8 @@ function createPattern14(){
   let startFlow = new orientedMuzzle(0, 0, 0, 60, DIFF, vecs, 0);
   all.flows.push(startFlow);
   // infiniteMuzzle.
-  vecs = getVector([0.1, 0, -0.1], [0.1, 0.1, 0.1]);
-  let testFlow = new shootFlow(12, 0, vecs);
+  vecs = getVector([1, 0, -1], [1, 1, 1]);
+  let testFlow = new shootFlow(0, 0, vecs);
   all.flows.push(testFlow);
   all.connectMulti([0, 1, 2], [[1], [2], [3]]);
   all.registActor([0, 0, 0], [1, 1, 1], [0, 1, 2]);
