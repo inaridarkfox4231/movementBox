@@ -23,7 +23,7 @@ let shootNormal = [sfuncN0, sfuncN1, sfuncN2];
 let spiralParallel = [spfuncP0];
 let spiralNormal = [spfuncN0];
 
-const PATTERN_NUM = 1;
+const PATTERN_NUM = 15;
 const COLOR_NUM = 7;
 
 const DIRECT = 0; // orientedFlowの位置指定、直接指定。
@@ -512,7 +512,7 @@ class shootFlow extends ejectiveFlow{
     _actor.pos.x = p.x + v.x * parallelEasing + v.y * normalEasing;
     _actor.pos.y = p.y + v.y * parallelEasing - v.x * normalEasing; // これでいいの？
     this.eject(_actor);
-    console.log(_actor.info['from']);
+    //console.log(_actor.info['from']);
   }
   eject(_actor){
     // 画面外に出たら抹殺
@@ -651,7 +651,8 @@ class orientedMuzzle extends easingFlow{
   }
   regist(_actor){
     // revolverGimicでこれを呼び出して先に登録しちゃう
-    _actor.info['from'] = _actor.pos;
+    //_actor.info['from'] = _actor.pos;
+    _actor.info['from'] = createVector(_actor.pos.x, _actor.pos.y);
     let infoVector = this.getInfoVector(); // ベクトルはここで計算する
     if(this.kind === DIRECT){
       _actor.info['to'] = infoVector;
@@ -716,8 +717,7 @@ class actor{
     // initialGimicが入るのはここ
     if(this.state === IDLE){
       this.idleAction();
-    }
-    if(this.state === IN_PROGRESS){
+    }else if(this.state === IN_PROGRESS){
       this.in_progressAction();
     }else if(this.state === COMPLETED){
       this.completeAction();
@@ -1003,8 +1003,8 @@ class entity{
     this.initialGimic = [];  // flow開始時のギミック
     this.completeGimic = []; // flow終了時のギミック
     this.patternIndex = 0; // うまくいくのかな・・
-    this.patternArray = [createPattern14] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
-    //this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12, createPattern13];
+    //this.patternArray = [createPattern14] // いちいち全部クリエイトするのあほらしいからこれ用意したよ。
+    this.patternArray = [createPattern0, createPattern1, createPattern2, createPattern3, createPattern4, createPattern5, createPattern6, createPattern7, createPattern8, createPattern9, createPattern10, createPattern11, createPattern12, createPattern13, createPattern14];
   }
   getFlow(givenIndex){
     for(let i = 0; i < this.flows.length; i++){
@@ -1480,11 +1480,11 @@ function createPattern14(){
   all.registFlow(paramSet);
   // orientedMuzzle.
   vecs = getVector([-100, 0, 100], [100, 100, 100]);
-  let startFlow = new orientedMuzzle(0, 0, 0, 60, DIFF, vecs, 0);
+  let startFlow = new orientedMuzzle(9, 0, 0, 60, DIFF, vecs, 0);
   all.flows.push(startFlow);
   // infiniteMuzzle.
   vecs = getVector([1, 0, -1], [1, 1, 1]);
-  let testFlow = new shootFlow(0, 0, vecs);
+  let testFlow = new shootFlow(12, 0, vecs);
   all.flows.push(testFlow);
   all.connectMulti([0, 1, 2], [[1], [2], [3]]);
   all.registActor([0, 0, 0], [1, 1, 1], [0, 1, 2]);
@@ -1651,7 +1651,7 @@ function funcP10(x){ return x + sin(2 * PI * x); }
 
 // infinite用
 function funcP11(x){ return Math.sqrt(x); }
-function funcP12(x){ return pow(x, 1.2); }
+function funcP12(x){ return pow(x, 1.5); }
 
 function funcN0(x){ return 0; }
 function funcN1(x){ return sin(10 * PI * x); }
@@ -1660,6 +1660,8 @@ function funcN2(x){ return sin(2 * PI * x); }
 // そうだ、shootingFlowとcircularFlowだけパラメータ取るようにしよう。それでいこう。
 // パラメータは辞書に含めましょう。たてよこ2つまで、合計4つ。
 function funcN3(x){ return 30 * sin(x / 3); }
+
+// たとえばa * pow(x, b)とかa * sin(2 * PI / b)とかいろいろ。aまでbへ線型に増加してそのあとずっとbとか。
 
 // 微分. パラメータ取れるようにしよう。
 function sfuncP0(x){ return 1; }
