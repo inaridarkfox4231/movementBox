@@ -5,6 +5,9 @@
 // あとあれ、ボールを運ぶゲーム、実装の入口に立ちたいのと、
 // それとcircularFlowをinfo使ってサクッと書いてしまう。
 
+// infoで出来ることは速度の導入でほぼうまくいくので・・
+// あとあれ、形復活させたい。8×7で56パターン手に入るの大きい。
+
 'use strict';
 let all; // 全体
 let backgroundColor;
@@ -755,7 +758,7 @@ class movingActor extends actor{
   constructor(f = undefined, speed = 1, colorId = 0){
     super(f);
     this.pos = createVector(-100, -100); // flowが始まれば勝手に・・って感じ。
-    let colorOfActor = color(hue(palette[colorId]), saturation(palette[colorId]), 100); // 自分の色。
+    let colorOfActor = color(hue(palette[colorId]), 100, 100); // 自分の色。
     this.visual = new rollingFigure(colorOfActor); // 回転する図形
     this.speed = speed; // 今の状況だとスピードも要るかな・・クラスとして分離するかは要相談（composition）
     this.visible = true;
